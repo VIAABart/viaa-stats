@@ -1,22 +1,15 @@
-require 'data_mapper'
-require 'dm-is-read_only'
-require 'sinatra/base'
-require 'sinatra/reloader'
-require 'sinatra/multi_route'
-require 'sinatra/config_file'
-require 'json'
-require 'yaml'
-
+require 'rubygems'
+require 'bundler/setup'
+Bundler.require(:default)
 
 ### The data is base ###
 
 db = YAML.load_file('db.yml')
-
-puts db.to_json
+env = "development"
 
 DataMapper::Logger.new($stdout, :debug)
 
-DataMapper.setup(:default, 'mysql://mediahaven:mediahaven@do-qas-dbs-01.do.viaa.be/ams')
+DataMapper.setup(:default, "mysql://#{db[env]["u"]}:#{db[env]["p"]}@#{db[env]["h"]}/#{db[env]["db"]}")
 
 class Carrier
     include DataMapper::Resource
@@ -67,9 +60,6 @@ class Stats
   end
   
   def give(status,type)
-    puts status.inspect
-    puts type.inspect
-    puts status
     status.to_s == "all" ? @stats : @stats[status.to_sym][type.to_sym]
   end
   
@@ -83,22 +73,17 @@ class V1 < Sinatra::Base
   class SyntaxError < StandardError; end
   
   register Sinatra::MultiRoute
-  register Sinatra::ConfigFile
-
-  config_file 'config.yml'
  
-  set :environment, :development
-  
   configure :development do
     register Sinatra::Reloader
     enable :raise_errors
     enable :show_exceptions
-    set :dump_errors, false
-    #set :dump_errors, true
+    set :dump_errors, true
   end
   
   set :show_exceptions, false
-  #set :raise_errors, false
+  set :raise_errors, false
+  set :dump_errors, false
   
   set :default_type, :all
   set :default_unit, :items
