@@ -1,5 +1,0 @@
-development:
-  db: db-name
-  h: db-hostname
-  u: db-username
-  p: db-password

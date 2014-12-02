@@ -3,9 +3,16 @@ require 'dm-is-read_only'
 require 'sinatra/base'
 require 'sinatra/reloader'
 require 'sinatra/multi_route'
+require 'sinatra/config_file'
 require 'json'
+require 'yaml'
+
 
 ### The data is base ###
+
+db = YAML.load_file('db.yml')
+
+puts db.to_json
 
 DataMapper::Logger.new($stdout, :debug)
 
@@ -76,6 +83,11 @@ class V1 < Sinatra::Base
   class SyntaxError < StandardError; end
   
   register Sinatra::MultiRoute
+  register Sinatra::ConfigFile
+
+  config_file 'config.yml'
+ 
+  set :environment, :development
   
   configure :development do
     register Sinatra::Reloader
@@ -85,7 +97,6 @@ class V1 < Sinatra::Base
     #set :dump_errors, true
   end
   
-  set :environment, :development
   set :show_exceptions, false
   #set :raise_errors, false
   
