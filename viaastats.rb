@@ -56,7 +56,7 @@ class Stats
     registered_paper = Carrier.count(:carrier_type_id => 3)
     registered_all = Carrier.count
     @stats = {:digitised => {:audio => digitized_audio, :video => digitized_video, :paper => digitized_paper, :all => digitized_all},
-              :registered => {:audio => registered_audio, :video => registered_audio, :paper => registered_paper, :all => registered_all}}
+              :registered => {:audio => registered_audio, :video => registered_video, :paper => registered_paper, :all => registered_all}}
   end
   
   def give(status,type)
