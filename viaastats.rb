@@ -2,8 +2,6 @@ require 'rubygems'
 require 'bundler/setup'
 Bundler.require(:default)
 
-require_relative 'helpers/numeric'
-
 ### The data is base ###
 
 conf = YAML.load_file('db.yml')
