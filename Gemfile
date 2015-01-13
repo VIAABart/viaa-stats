@@ -8,3 +8,4 @@ gem 'dm-is-read_only'
 gem 'sinatra', :require => ['sinatra/base', 'sinatra/reloader', 'sinatra/multi_route']
 gem 'sinatra-contrib'
 gem 'json'
+gem 'thin'

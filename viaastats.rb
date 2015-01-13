@@ -92,60 +92,17 @@ DataMapper.finalize
 
 ### The Method Man ###
 
-@@since = "2013-01-01"
-@@until = DateTime.now
-
-class Stats
-  
-  #@carrier = {:digitized => {:audio => Carrier.count(:carrier_type_id => 1 , :is_digitized => 1)}}
-  
-  def initialize
-    digitized_audio = Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @@since, :event_date.lte => @@until}, :carrier_type_id => 1)
-    digitized_video = Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @@since, :event_date.lte => @@until}, :carrier_type_id => 2)
-    digitized_paper = Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @@since, :event_date.lte => @@until}, :carrier_type_id => 3)
-    digitized_all = digitized_audio + digitized_video + digitized_paper
-    registered_audio = Carrier.count(:carrier_type_id => 1, :created_on.gte => @@since, :created_on.lte => @@until)
-    registered_video = Carrier.count(:carrier_type_id => 2, :created_on.gte => @@since, :created_on.lte => @@until)
-    registered_paper = Carrier.count(:carrier_type_id => 3, :created_on.gte => @@since, :created_on.lte => @@until)
-    registered_all = registered_audio + registered_video + registered_paper
-    archived_all = Event.count(:status => 'ARCHIVED_ON_TAPE', :date.gte => @@since, :date.lte => @@until)
-    archived_bytes = Pid.sum(:carrier_size, :date.gte => @@since, :date.lte => @@until, :status => 'OK')
-    archived_terabytes = archived_bytes.to(:tb,2)
-    ingested_all = Pid.count(:date.gte => @@since, :date.lte => @@until)
-    @stats = {:digitised => {:audio => digitized_audio, :video => digitized_video, :paper => digitized_paper, :all => digitized_all},
-              :registered => {:audio => registered_audio, :video => registered_video, :paper => registered_paper, :all => registered_all},
-              :archived => {:all => archived_all, :bytes => archived_bytes, :terabytes => archived_terabytes},
-              :ingested => {:all => ingested_all}}
-  end
-  
-  def give(status,type)
-    status.to_s == "all" ? @stats : @stats[status.to_sym][type.to_sym]
-  end
-  
-end
+require_relative 'lib/stats'
 
 ### Extra's ###
 
-class Numeric
-  def to(unit, places=1)
-    units = { :b => 1,
-              :kb => 1024**1,
-              :mb => 1024**2,
-              :gb => 1024**3,
-              :tb => 1024**4,
-              :pb => 1024**5,
-              :eb => 1024**6}
-    unitval = units[unit.to_s.downcase.to_sym]
-    "#{sprintf("%.#{places}f", self / unitval)}" # "#{unit.to_s.upcase}"
-  end # to
-end
+require_relative 'lib/numeric'
 
 ### The Sinatra Part ###
 
 class V1 < Sinatra::Base
   
   class MethodError < StandardError; end
-  class SyntaxError < StandardError; end
   
   register Sinatra::MultiRoute
  
@@ -156,81 +113,109 @@ class V1 < Sinatra::Base
     set :dump_errors, true
   end
   
-  set :show_exceptions, false
-  set :raise_errors, false
-  set :dump_errors, false
-  
-  set :default_type, :all
-  set :default_count, :items
+  configure :production do
+    set :raise_errors, false
+    set :show_exceptions, false
+    set :dump_errors, false
+  end
+
+  helpers do
+    
+    def validate(*date)
+      date.each do |date|
+        begin
+          Date.parse(date)
+          puts "date ok"
+        rescue ArgumentError
+          raise MethodError, "Invalid Date"
+        end
+      end
+    end
+    
+    def datebefore(date1,date2)
+      raise MethodError if Date.parse(date1) > Date.parse(date2)
+    end
+    
+    def past(*date)
+      date.each do |date|
+        raise MethodError if Date.parse(date) > DateTime.now
+      end
+    end
+    
+  end
 
   before do
     content_type :json
   end
 
-  get '/', '/api', '/api/' ,'/api/v1/' do
+  get '/' , '/api', '/api/', '/api/v1/' do
     redirect to('/api/v1'), 303
   end  
   
   get '/api/v1' do
       status 200
-      body "GET https://status.viaa.be/api/v1/<status>/<type>/<count>          
+      body "GET https://status.viaa.be/api/v1/<status>?<since=YYYY-MM-DD>&<until=YYYY-MM-DD>        
  
-/* where:
-    - status:   all, registered, digitised, archived, ingested, published (required, no default)
-    - type:     audio, video, paper, all (default: all)
-    - count:    items (default: count expressed in number of items) 
+/* Where:
+    - status:       all, registered, digitised, archived, ingested, published (required, no default)
+    - since-until:  optional query string; when specifying until, since has to be provided (defaults to all time if non is given)
+    
+    Default count is expressed in number of items accept for 'archived' where (t)bytesize is also returned if status is 'all'. 
 */"
   end
   
   
-  get '/api/v1/:status/?:type?/?:count?' do
+  get '/api/:version/:status' do
+    raise MethodError unless params[:version].match /v1/
     raise MethodError unless params[:status].match /archived|ingested|registered|published|digitised|all/
+    raise MethodError if params[:until] and not(params[:since])
     
-    if params[:type]
-      raise SyntaxError unless params[:type].match /video|audio|paper|all/  
-    end
-    
-    if params[:count]
-      raise SyntaxError unless params[:count].match /size|time|items/  
-    end
-    
-    if params[:since]
-      @@since = params[:since]
-    end
-    
-    if params[:until]
-      @@until = params[:until]
+    if params[:since] and not params[:until]
+      validate(params[:since])
+      past(params[:since])
+      stats = Stats.new(params[:since])
+    elsif params[:since] and params[:until]
+      validate(params[:since],params[:until])
+      past(params[:since],params[:until])
+      datebefore(params[:since],params[:until])
+      stats = Stats.new(params[:since],params[:until])
+    else
+      stats = Stats.new
     end
     
     res,req = {},{}
     req[:url] = request.url.to_s
     req[:timestamp] = Time.now
-    req[:type] = settings.default_type
-    req[:count] = settings.default_count
         
     params.each do |k,v|
       req[k.to_sym] = v unless k == "splat" || k == "captures"
     end
     
-    stats = Stats.new
-    res[:data] = stats.give(req[:status],req[:type])
+    res[:data] = stats.give(req[:status])
 
-    jason = {:request => req, :response => res}
-    return jason.to_json
+    payload = {:request => req, :response => res}
+    return payload.to_json
   end
   
-  get '/api/v1/:status/?:type?/?:count?/*' do
-    raise SyntaxError
+  get '/api/v1/:status/*' do
+    raise MethodError
+  end
+  
+  error 500..510 do
+    'Boom'
   end
   
   error MethodError do
-    status 404
-    {:error => "404 for that one, sorry"}.to_json
+    status 400
+    { :timestamp => Time.now,
+      :error => env['sinatra.error'],
+      :message => env['sinatra.error'].message,
+      :doc => "Specify one of these /api/v1/<archived>|<ingested>|<registered>|<published>|<digitised>|<all>"
+    }.to_json
   end
   
-  error SyntaxError do
-    status 404
-    {:error => "Missing arguments or syntax error."}.to_json
+  error Sinatra::NotFound do
+    halt 404
   end
   
   run! if __FILE__ == $0
