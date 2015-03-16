@@ -33,10 +33,11 @@ class Carrier
     property :id,               Serial
     property :carrier_type_id,  Integer
     property :status_id,        Integer 
-    property :is_digitized,     Integer
+    property :is_digitised,     Integer
     property :created_on ,      DateTime
     
     has n, :events, :model => 'Carrierevent'
+    has n, :paper_event, :model => 'Paperevent'
 end
 
 class Carrierevent
@@ -44,6 +45,21 @@ class Carrierevent
   is :read_only
   
   storage_names[:default] = 'events'
+  
+  property :id,               Serial
+  property :carrier_id,       Integer
+  property :event_lookup_id,  Integer
+  property :event_date,       DateTime
+  
+  belongs_to :carrier, :model => 'Carrier'
+
+end
+
+class Paperevent
+  include DataMapper::Resource
+  is :read_only
+  
+  storage_names[:default] = 'paper_event'
   
   property :id,               Serial
   property :carrier_id,       Integer

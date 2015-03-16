@@ -1,27 +1,36 @@
+require 'time'
+
 class Stats
   
   attr_reader :since, :until  
   
-  def initialize(s="2013-01-01",u=DateTime.now)
+  def initialize(s="2001-01-01",u=DateTime.now)
     @since = s
     @until = u
     @stats = Hash.new
   end
   
-  def digitized_audio
-    return Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 1)
+  def digitised_audio
+    @da = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}') and carrier_type_id = 1;")[0]
+    return @da
+    # Carrier.count(:events => {:event_lookup_id => 6, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 1)
   end 
   
-  def digitized_video
-    return Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 2)
+  def digitised_video
+    @dv = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}' OR MONTH(event_date) = 10 AND DAY(event_date) = 14) and carrier_type_id = 2;")[0] 
+    return @dv
+    # Carrier.count(:events => {:event_lookup_id => 6, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 2)
   end
   
-  def digitized_paper
-    return Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 3)
+  def digitised_paper
+    @dp = repository(:default).adapter.select("select count(distinct carrier_id) from paper_event where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}';")[0] 
+    return @dp
+    #Carrier.count(:paper_event => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 3)
   end
   
-  def digitized_all
-    self.digitized_audio + self.digitized_video + self.digitized_paper
+  def digitised_all
+    return @da+@dv+@dp
+    #Carrier.count(:is_digitised => 1)
   end
   
   def registered_audio
@@ -59,14 +68,14 @@ class Stats
   def give(status)
     case status
     when "all"
-      @stats = {:digitised => {:audio => self.digitized_audio, :video => self.digitized_video, :paper => self.digitized_paper, :all => self.digitized_all},
+      @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all},
                   :registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :all => self.registered_all},
                   :archived => {:all => self.archived_all, :bytes => self.archived_bytes, :terabytes => self.archived_terabytes},
                   :ingested => {:all => self.ingested_all}}
     when "archived"
       @stats = {:archived => {:all => self.archived_all, :bytes => self.archived_bytes, :terabytes => self.archived_terabytes}}
     when "digitised"
-      @stats = {:digitised => {:audio => self.digitized_audio, :video => self.digitized_video, :paper => self.digitized_paper, :all => self.digitized_all}}
+      @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all}}
     when "registered"
       @stats = {:registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :all => self.registered_all}}
     when "ingested"
