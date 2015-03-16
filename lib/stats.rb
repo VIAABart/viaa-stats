@@ -11,19 +11,19 @@ class Stats
   end
   
   def digitised_audio
-    @da = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}') and carrier_type_id = 1;")[0]
+    @da = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_outcome = 1 and event_date >= '#{@since}' AND event_date <= '#{@until}') and carrier_type_id = 1;")[0]
     return @da
-    # Carrier.count(:events => {:event_lookup_id => 6, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 1)
+    # Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 1)
   end 
   
   def digitised_video
-    @dv = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}' OR MONTH(event_date) = 10 AND DAY(event_date) = 14) and carrier_type_id = 2;")[0] 
+    @dv = repository(:default).adapter.select("select count(distinct pid) from carrier where id in (select distinct carrier_id from events where event_lookup_id = 5 and event_outcome = 1 and event_date >= '#{@since}' AND event_date <= '#{@until}' OR MONTH(event_date) = 10 AND DAY(event_date) = 14) and carrier_type_id = 2;")[0] # shiver and shrug
     return @dv
-    # Carrier.count(:events => {:event_lookup_id => 6, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 2)
+    # Carrier.count(:events => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 2)
   end
   
   def digitised_paper
-    @dp = repository(:default).adapter.select("select count(distinct carrier_id) from paper_event where event_lookup_id = 5 and event_date >= '#{@since}' AND event_date <= '#{@until}';")[0] 
+    @dp = repository(:default).adapter.select("select count(distinct carrier_id) from paper_event where event_lookup_id = 5 and event_outcome = 1 and event_date >= '#{@since}' AND event_date <= '#{@until}';")[0] 
     return @dp
     #Carrier.count(:paper_event => {:event_lookup_id => 5, :event_date.gte => @since, :event_date.lte => @until}, :carrier_type_id => 3)
   end
@@ -34,19 +34,23 @@ class Stats
   end
   
   def registered_audio
-    return Carrier.count(:carrier_type_id => 1, :created_on.gte => @since, :created_on.lte => @until)
+    @ra = Carrier.count(:carrier_type_id => 1, :created_on.gte => @since, :created_on.lte => @until)
+    return @ra
   end
   
   def registered_video
-    return Carrier.count(:carrier_type_id => 2, :created_on.gte => @since, :created_on.lte => @until)
+    @rv = Carrier.count(:carrier_type_id => 2, :created_on.gte => @since, :created_on.lte => @until)
+    return @rv
   end
   
   def registered_paper
-    return Carrier.count(:carrier_type_id => 3, :created_on.gte => @since, :created_on.lte => @until)
+    @rp = Carrier.count(:carrier_type_id => 3, :created_on.gte => @since, :created_on.lte => @until)
+    return @rp
   end
   
   def registered_all
-    self.registered_audio + self.registered_video + self.registered_paper
+    return @ra+@rv+@rp
+    #self.registered_audio + self.registered_video + self.registered_paper
   end
   
   def archived_all
