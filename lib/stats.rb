@@ -48,9 +48,13 @@ class Stats
     return @rp
   end
   
+  def registered_film
+    @rf = Carrier.count(:carrier_type_id => 4, :created_on.gte => @since, :created_on.lte => @until)
+    return @rf
+  end
+  
   def registered_all
-    return @ra+@rv+@rp
-    #self.registered_audio + self.registered_video + self.registered_paper
+    return @ra+@rv+@rp+@rf
   end
   
   def archived_all
@@ -73,7 +77,7 @@ class Stats
     case status
     when "all"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all},
-                  :registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :all => self.registered_all},
+                  :registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :film => self.registered_film, :all => self.registered_all},
                   :archived => {:all => self.archived_all, :bytes => self.archived_bytes, :terabytes => self.archived_terabytes},
                   :ingested => {:all => self.ingested_all}}
     when "archived"
@@ -81,7 +85,7 @@ class Stats
     when "digitised"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all}}
     when "registered"
-      @stats = {:registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :all => self.registered_all}}
+      @stats = {:registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :film => self.registered_film, :all => self.registered_all}}
     when "ingested"
       @stats = {:ingested => {:all => self.ingested_all}}
     else
