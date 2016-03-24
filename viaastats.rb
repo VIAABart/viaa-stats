@@ -4,12 +4,25 @@ Bundler.require(:default)
 
 ### The data is base ###
 
-db = YAML.load_file('db.yml')
-env = "development"
+conf = YAML.load_file('db.yml')
 
-DataMapper::Logger.new($stdout, :debug)
+DataMapper::Logger.new(STDOUT, :debug)
 
-DataMapper.setup(:default, "mysql://#{db[env]["u"]}:#{db[env]["p"]}@#{db[env]["h"]}/#{db[env]["db"]}")
+DataMapper.setup(:default, { 
+      adapter: conf["db1"]["adapter"],
+      database: conf["db1"]["db"],
+      username: conf["db1"]["u"],
+      password: conf["db1"]["p"],
+      host: conf["db1"]["h"],
+      port: conf["db1"]["port"]})
+
+DataMapper.setup(:monitoring, {
+      adapter: conf["db2"]["adapter"],
+      database: conf["db2"]["db"],
+      username: conf["db2"]["u"],
+      password: conf["db2"]["p"],
+      host: conf["db2"]["h"],
+      port: conf["db2"]["port"]})
 
 class Carrier
     include DataMapper::Resource
@@ -20,57 +33,92 @@ class Carrier
     property :id,               Serial
     property :carrier_type_id,  Integer
     property :status_id,        Integer 
-    property :is_digitized,     Integer
+    property :is_digitised,     Integer
+    property :created_on ,      DateTime
     
-    has 1, :carrier_type
+    has n, :events, :model => 'Carrierevent'
+    has n, :paper_event, :model => 'Paperevent'
 end
 
-class CarrierType
+class Carrierevent
+  include DataMapper::Resource
+  is :read_only
+  
+  storage_names[:default] = 'events'
+  
+  property :id,               Serial
+  property :carrier_id,       Integer
+  property :event_lookup_id,  Integer
+  property :event_date,       DateTime
+  
+  belongs_to :carrier, :model => 'Carrier'
+
+end
+
+class Paperevent
+  include DataMapper::Resource
+  is :read_only
+  
+  storage_names[:default] = 'paper_event'
+  
+  property :id,               Serial
+  property :carrier_id,       Integer
+  property :event_lookup_id,  Integer
+  property :event_date,       DateTime
+  
+  belongs_to :carrier, :model => 'Carrier'
+
+end
+
+class Pid
     include DataMapper::Resource
     is :read_only
     
-    storage_names[:default] = 'carrier_type'
+    def self.default_repository_name
+        :monitoring
+    end
     
-    property :id,         Serial
-    property :name,       String
+    storage_names[:monitoring] = 'pids'
     
-    belongs_to :carrier
+    property :id,               Serial
+    property :carrier_size,     Integer
+    property :status,           String
+    property :date,             DateTime
     
+end
+
+class Event
+  include DataMapper::Resource
+  is :read_only
+  
+  def self.default_repository_name
+      :monitoring
+  end
+  
+  storage_names[:monitoring] = 'events'
+  
+  property :event_id,         Serial
+  property :pid,              String
+  property :status,           String, :field => 'key'
+  property :date,             DateTime
+
 end
 
 DataMapper.finalize
 
 ### The Method Man ###
 
-class Stats
-  
-  #@carrier = {:digitized => {:audio => Carrier.count(:carrier_type_id => 1 , :is_digitized => 1)}}
-  
-  def initialize
-    digitized_audio = Carrier.count(:carrier_type_id => 1 , :is_digitized => 1)
-    digitized_video = Carrier.count(:carrier_type_id => 2 , :is_digitized => 1)
-    digitized_paper = Carrier.count(:carrier_type_id => 3 , :is_digitized => 1)
-    digitized_all = Carrier.count(:is_digitized => 1)
-    registered_audio = Carrier.count(:carrier_type_id => 1)
-    registered_video = Carrier.count(:carrier_type_id => 2)
-    registered_paper = Carrier.count(:carrier_type_id => 3)
-    registered_all = Carrier.count
-    @stats = {:digitised => {:audio => digitized_audio, :video => digitized_video, :paper => digitized_paper, :all => digitized_all},
-              :registered => {:audio => registered_audio, :video => registered_audio, :paper => registered_paper, :all => registered_all}}
-  end
-  
-  def give(status,type)
-    status.to_s == "all" ? @stats : @stats[status.to_sym][type.to_sym]
-  end
-  
-end
+require_relative 'lib/stats'
+
+### Extra's ###
+
+require_relative 'lib/numeric'
 
 ### The Sinatra Part ###
 
 class V1 < Sinatra::Base
   
   class MethodError < StandardError; end
-  class SyntaxError < StandardError; end
   
   register Sinatra::MultiRoute
  
@@ -81,73 +129,109 @@ class V1 < Sinatra::Base
     set :dump_errors, true
   end
   
-  set :show_exceptions, false
-  set :raise_errors, false
-  set :dump_errors, false
-  
-  set :default_type, :all
-  set :default_unit, :items
+  configure :production do
+    set :raise_errors, false
+    set :show_exceptions, false
+    set :dump_errors, false
+  end
+
+  helpers do
+    
+    def validate(*date)
+      date.each do |date|
+        begin
+          Date.parse(date)
+          puts "date ok"
+        rescue ArgumentError
+          raise MethodError, "Invalid Date"
+        end
+      end
+    end
+    
+    def datebefore(date1,date2)
+      raise MethodError if Date.parse(date1) > Date.parse(date2)
+    end
+    
+    def past(*date)
+      date.each do |date|
+        raise MethodError if Date.parse(date) > DateTime.now
+      end
+    end
+    
+  end
 
   before do
     content_type :json
   end
 
-  get '/', '/api', '/api/' ,'/api/v1/' do
+  get '/' , '/api', '/api/', '/api/v1/' do
     redirect to('/api/v1'), 303
   end  
   
   get '/api/v1' do
       status 200
-      body "GET https://status.viaa.be/api/v1/<status>/<type>/<unit>          
+      body "GET https://status.viaa.be/api/v1/<status>?<since=YYYY-MM-DD>&<until=YYYY-MM-DD>        
  
-/* where:
-    - status:   all, registered, digitized, archived, published (required, no default)
-    - type:     audio, video, paper, all (default: all)
-    - unit:     items, hours, size (default: size expressed in items) 
+/* Where:
+    - status:       all, registered, digitised, archived, ingested, published (required, no default)
+    - since-until:  optional query string; when specifying until, since has to be provided (defaults to all time if non is given)
+    
+    Default count is expressed in number of items accept for 'archived' where (t)bytesize is also returned if status is 'all'. 
 */"
   end
   
   
-  get '/api/v1/:status/?:type?/?:unit?' do
-    raise MethodError unless params[:status].match /archived|registered|published|digitised|all/
+  get '/api/:version/:status' do
+    raise MethodError unless params[:version].match /v1/
+    raise MethodError unless params[:status].match /archived|ingested|registered|published|digitised|all/
+    raise MethodError if params[:until] and not(params[:since])
     
-    if params[:type]
-      raise SyntaxError unless params[:type].match /video|audio|paper|all/  
-    end
-    
-    if params[:unit]
-      raise SyntaxError unless params[:unit].match /size|time|items/  
+    if params[:since] and not params[:until]
+      validate(params[:since])
+      past(params[:since])
+      stats = Stats.new(params[:since])
+    elsif params[:since] and params[:until]
+      validate(params[:since],params[:until])
+      past(params[:since],params[:until])
+      datebefore(params[:since],params[:until])
+      stats = Stats.new(params[:since],params[:until])
+    else
+      stats = Stats.new
     end
     
     res,req = {},{}
     req[:url] = request.url.to_s
     req[:timestamp] = Time.now
-    req[:type] = settings.default_type
-    req[:unit] = settings.default_unit
         
     params.each do |k,v|
       req[k.to_sym] = v unless k == "splat" || k == "captures"
     end
     
-    stats = Stats.new
-    res[:data] = stats.give(req[:status],req[:type])
+    res[:data] = stats.give(req[:status])
 
-    jason = {:request => req, :response => res}
-    return jason.to_json
+    payload = {:request => req, :response => res}
+    return payload.to_json
   end
   
-  get '/api/v1/:status/?:type?/?:unit?/*' do
-    raise SyntaxError
+  get '/api/v1/:status/*' do
+    raise MethodError
+  end
+  
+  error 500..510 do
+    'Boom'
   end
   
   error MethodError do
-    status 404
-    {:error => "404 for that one, sorry"}.to_json
+    status 400
+    { :timestamp => Time.now,
+      :error => env['sinatra.error'],
+      :message => env['sinatra.error'].message,
+      :doc => "Specify one of these /api/v1/<archived>|<ingested>|<registered>|<published>|<digitised>|<all>"
+    }.to_json
   end
   
-  error SyntaxError do
-    status 404
-    {:error => "Missing arguments or syntax error."}.to_json
+  error Sinatra::NotFound do
+    halt 404
   end
   
   run! if __FILE__ == $0
