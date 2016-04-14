@@ -1,5 +1,5 @@
 class Numeric
-  def to(unit, places=1)
+  def to(unit, places=2)
     units = { :b => 1,
               :kb => 1024**1,
               :mb => 1024**2,
@@ -8,6 +8,6 @@ class Numeric
               :pb => 1024**5,
               :eb => 1024**6}
     unitval = units[unit.to_s.downcase.to_sym]
-    "#{sprintf("%.#{places}f", self / unitval)}" # "#{unit.to_s.upcase}"
+    "#{sprintf("%.#{places}f", self.to_f / unitval)}" # "#{unit.to_s.upcase}"
   end # to
 end

@@ -4,7 +4,7 @@ class Stats
   
   attr_reader :since, :until  
   
-  def initialize(s="2001-01-01",u=DateTime.now)
+  def initialize(s="1901-01-01",u=DateTime.now)
     @since = s
     @until = u
     @stats = Hash.new
@@ -58,15 +58,23 @@ class Stats
   end
   
   def archived_all
-    Event.count(:status => 'ARCHIVED_ON_VAULT', :date.gte => @since, :date.lte => @until)
+    Event.count(:status => 'ARCHIVED_ON_VAULT', :date.gte => @since, :date.lte => @until, :status => 'OK')
   end
   
   def archived_bytes
     Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK')
   end
   
+  def archived_gigabytes
+    self.archived_bytes.to(:gb)
+  end
+  
   def archived_terabytes
-    self.archived_bytes.to(:tb,2)
+    self.archived_bytes.to(:tb)
+  end
+  
+  def archived_petabytes
+    self.archived_bytes.to(:pb)
   end
   
   def ingested_all
@@ -78,10 +86,10 @@ class Stats
     when "all"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all},
                   :registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :film => self.registered_film, :all => self.registered_all},
-                  :archived => {:all => self.archived_all, :bytes => self.archived_bytes, :terabytes => self.archived_terabytes},
+                  :archived => {:all => self.archived_all, :bytes => self.archived_bytes, :gigabytes => self.archived_gigabytes, :terabytes => self.archived_terabytes, :petabytes => self.archived_petabytes},
                   :ingested => {:all => self.ingested_all}}
     when "archived"
-      @stats = {:archived => {:all => self.archived_all, :bytes => self.archived_bytes, :terabytes => self.archived_terabytes}}
+      @stats = {:archived => {:all => self.archived_all, :bytes => self.archived_bytes, :gigabytes => self.archived_gigabytes, :terabytes => self.archived_terabytes, :petabytes => self.archived_petabytes}}
     when "digitised"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all}}
     when "registered"

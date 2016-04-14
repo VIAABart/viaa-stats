@@ -97,9 +97,9 @@ class Event
   
   storage_names[:monitoring] = 'events'
   
-  property :event_id,         Serial
+  property :event_id,         Serial, :field => 'key'
   property :pid,              String
-  property :status,           String, :field => 'key'
+  property :status,           String
   property :date,             DateTime
 
 end
