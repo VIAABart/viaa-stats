@@ -4,9 +4,11 @@ class Stats
   
   attr_reader :since, :until  
   
-  def initialize(s="1901-01-01",u=DateTime.now)
-    @since = s
-    @until = u
+  def initialize(opts={})
+    @options = opts
+    @since = opts[:since] ? DateTime.parse(opts[:since]).iso8601 : "1901-01-01T00:00:00Z"
+    @until = opts[:until] ? DateTime.parse(opts[:until]).iso8601 : Time.now.iso8601
+    @options[:tenant] ? @tenant = @options[:tenant] : @tenant = nil
     @stats = Hash.new
   end
   
@@ -57,24 +59,23 @@ class Stats
     return @ra+@rv+@rp+@rf
   end
   
-  def archived_all
-    Event.count(:status => 'ARCHIVED_ON_VAULT', :date.gte => @since, :date.lte => @until, :status => 'OK')
+  def archived(tenant=nil)
+    unless tenant == nil
+      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
+    else
+      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
+    end
+    return @at
   end
-  
-  def archived_bytes
-    Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK')
-  end
-  
-  def archived_gigabytes
-    self.archived_bytes.to(:gb)
-  end
-  
-  def archived_terabytes
-    self.archived_bytes.to(:tb)
-  end
-  
-  def archived_petabytes
-    self.archived_bytes.to(:pb)
+
+  def archived_bytes(tenant=nil)
+    unless tenant == nil
+      @bytes=repository(:monitoring).adapter.select("SELECT SUM(carrier_size) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider,pids.carrier_size FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0].to_f
+      #@bytes=Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK', :content_provider => tenant)
+    else
+      @bytes=Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK')
+    end
+    return @bytes
   end
   
   def ingested_all
@@ -86,10 +87,10 @@ class Stats
     when "all"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all},
                   :registered => {:audio => self.registered_audio, :video => self.registered_video, :paper => self.registered_paper, :film => self.registered_film, :all => self.registered_all},
-                  :archived => {:all => self.archived_all, :bytes => self.archived_bytes, :gigabytes => self.archived_gigabytes, :terabytes => self.archived_terabytes, :petabytes => self.archived_petabytes},
+                  :archived => {:all => self.archived(@tenant), :bytes => self.archived_bytes(@tenant), :gigabytes => @bytes.to(:gb), :terabytes => @bytes.to(:tb), :petabytes => @bytes.to(:pb)},
                   :ingested => {:all => self.ingested_all}}
     when "archived"
-      @stats = {:archived => {:all => self.archived_all, :bytes => self.archived_bytes, :gigabytes => self.archived_gigabytes, :terabytes => self.archived_terabytes, :petabytes => self.archived_petabytes}}
+      @stats = {:archived => {:all => self.archived(@tenant), :bytes => self.archived_bytes(@tenant), :gigabytes => @bytes.to(:gb), :terabytes => @bytes.to(:tb), :petabytes => @bytes.to(:pb)}}
     when "digitised"
       @stats = {:digitised => {:audio => self.digitised_audio, :video => self.digitised_video, :paper => self.digitised_paper, :all => self.digitised_all}}
     when "registered"

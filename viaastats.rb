@@ -80,10 +80,15 @@ class Pid
     
     storage_names[:monitoring] = 'pids'
     
-    property :id,               Serial
+    property :pid,              Serial
     property :carrier_size,     Integer
     property :status,           String
     property :date,             DateTime
+    property :content_provider, String
+    
+    has n, :events, 'Event',
+      :parent_key => [:pid],
+      :child_key => [:pid]
     
 end
 
@@ -101,6 +106,10 @@ class Event
   property :pid,              String
   property :status,           String
   property :date,             DateTime
+  
+  belongs_to :pid, 'Pid',
+    :parent_key => [:pid],
+    :child_key => [:pid]
 
 end
 
@@ -189,14 +198,14 @@ class V1 < Sinatra::Base
     if params[:since] and not params[:until]
       validate(params[:since])
       past(params[:since])
-      stats = Stats.new(params[:since])
+      stats = Stats.new(params)
     elsif params[:since] and params[:until]
       validate(params[:since],params[:until])
       past(params[:since],params[:until])
       datebefore(params[:since],params[:until])
-      stats = Stats.new(params[:since],params[:until])
+      stats = Stats.new(params)
     else
-      stats = Stats.new
+      stats = Stats.new(params)
     end
     
     res,req = {},{}
