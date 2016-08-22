@@ -61,19 +61,19 @@ class Stats
   
   def archived(tenant=nil)
     unless tenant == nil
-      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
+      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_TAPE_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
     else
-      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
+      @at=repository(:monitoring).adapter.select("SELECT COUNT(*) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_TAPE_VAULT' AND date >= '#{@since}' AND date <= '#{@until}';")[0]
     end
     return @at
   end
 
   def archived_bytes(tenant=nil)
     unless tenant == nil
-      @bytes=repository(:monitoring).adapter.select("SELECT SUM(carrier_size) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider,pids.carrier_size FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0].to_f
+      @bytes=repository(:monitoring).adapter.select("SELECT SUM(carrier_size) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider,pids.carrier_size FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_TAPE_VAULT' AND content_provider = '#{tenant}' AND date >= '#{@since}' AND date <= '#{@until}';")[0].to_f
       #@bytes=Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK', :content_provider => tenant)
     else 
-      @bytes=repository(:monitoring).adapter.select("SELECT SUM(carrier_size) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider,pids.carrier_size FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_VAULT' AND date >= '#{@since}' AND date <= '#{@until}';")[0].to_f
+      @bytes=repository(:monitoring).adapter.select("SELECT SUM(carrier_size) FROM (SELECT events.pid,events.key,events.date,pids.pid,pids.content_provider,pids.carrier_size FROM events LEFT JOIN pids USING (pid)) AS temp WHERE key = 'ARCHIVED_ON_TAPE_VAULT' AND date >= '#{@since}' AND date <= '#{@until}';")[0].to_f
       #@bytes=Pid.sum(:carrier_size, :date.gte => @since, :date.lte => @until, :status => 'OK')
       p @bytes
     end
