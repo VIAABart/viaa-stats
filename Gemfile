@@ -10,3 +10,4 @@ gem 'sinatra', :require => ['sinatra/base', 'sinatra/reloader', 'sinatra/multi_r
 gem 'sinatra-contrib'
 gem 'json'
 gem 'thin'
+gem 'pg'
