@@ -4,7 +4,7 @@ Bundler.require(:default)
 
 ### The data is base ###
 
-conf = YAML.load_file('db.yml')
+conf = YAML.load_file('config.yaml')
 
 DataMapper::Logger.new(STDOUT, :debug)
 
