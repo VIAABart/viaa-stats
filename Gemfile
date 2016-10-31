@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 #ruby '1.9.3'
-ruby '2.1.2'
+ruby '2.1.5'
 gem 'data_mapper'
 gem 'dm-mysql-adapter'
 gem 'dm-postgres-adapter'
@@ -10,3 +10,4 @@ gem 'sinatra', :require => ['sinatra/base', 'sinatra/reloader', 'sinatra/multi_r
 gem 'sinatra-contrib'
 gem 'json'
 gem 'thin'
+gem 'pg'
